@@ -88,7 +88,8 @@ Expected Output: {{ question.visible_test_cases.1.output }}
             <div class="col-md-8">
                 <div class="editor-container">
                     <h5>Code Editor</h5>
-                    <textarea class="form-control" rows="14" id="codeEditor"># Write your solution here</textarea>
+                    <textarea class="form-control" rows="14" id="codeEditor"># Write your code in a function with the name "solution()"
+# And return your solution</textarea>
                 </div>
                 <div class="mt-3">
                     <button class="btn btn-success" id="runCodeButton">Run</button>
@@ -105,9 +106,51 @@ Expected Output: {{ question.visible_test_cases.1.output }}
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            // Function to enter fullscreen
+            function enterFullscreen() {
+                const docEl = document.documentElement;
+                if (docEl.requestFullscreen) {
+                    docEl.requestFullscreen();
+                } else if (docEl.mozRequestFullScreen) { // Firefox
+                    docEl.mozRequestFullScreen();
+                } else if (docEl.webkitRequestFullscreen) { // Chrome, Safari, Opera
+                    docEl.webkitRequestFullscreen();
+                } else if (docEl.msRequestFullscreen) { // IE/Edge
+                    docEl.msRequestFullscreen();
+                }
+            }
+    
+            // Show a prompt for fullscreen
+            const fullscreenPrompt = document.createElement("div");
+            fullscreenPrompt.style.position = "fixed";
+            fullscreenPrompt.style.top = "0";
+            fullscreenPrompt.style.left = "0";
+            fullscreenPrompt.style.width = "100%";
+            fullscreenPrompt.style.height = "100%";
+            fullscreenPrompt.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+            fullscreenPrompt.style.color = "white";
+            fullscreenPrompt.style.display = "flex";
+            fullscreenPrompt.style.alignItems = "center";
+            fullscreenPrompt.style.justifyContent = "center";
+            fullscreenPrompt.style.zIndex = "9999";
+            fullscreenPrompt.innerHTML = `
+                <div style="text-align: center;">
+                    <h2>Enter Fullscreen to Begin the Test</h2>
+                    <button id="enterFullscreenButton" class="btn btn-light">Enter Fullscreen</button>
+                </div>
+            `;
+            document.body.appendChild(fullscreenPrompt);
+    
+            // Trigger fullscreen when the user clicks the button
+            document.getElementById("enterFullscreenButton").addEventListener("click", function () {
+                enterFullscreen();
+                fullscreenPrompt.style.display = "none";
+            });
+    
             // Timer
-            let timerElement = document.getElementById("timer");
+            const timerElement = document.getElementById("timer");
             let timeRemaining = 1800; // 30 minutes in seconds
+            let timerInterval;
     
             function formatTime(seconds) {
                 const minutes = Math.floor(seconds / 60);
@@ -116,11 +159,12 @@ Expected Output: {{ question.visible_test_cases.1.output }}
             }
     
             function startTimer() {
-                const timerInterval = setInterval(() => {
+                timerInterval = setInterval(() => {
                     if (timeRemaining <= 0) {
                         clearInterval(timerInterval);
                         timerElement.textContent = "Time's up!";
                         alert("Time's up! The test is over.");
+                        endTest();
                     } else {
                         timeRemaining--;
                         timerElement.textContent = formatTime(timeRemaining);
@@ -128,55 +172,79 @@ Expected Output: {{ question.visible_test_cases.1.output }}
                 }, 1000);
             }
     
+            function stopTimer() {
+                clearInterval(timerInterval);
+            }
+    
+            function endTest() {
+                stopTimer();
+                alert("The test has ended.");
+                window.location.href = "/questions"; // Redirect to questions page
+            }
+    
             startTimer();
             timerElement.textContent = formatTime(timeRemaining);
     
-            // Run Code Button
-            document.getElementById("runCodeButton").addEventListener("click", () => {
-                const code = document.getElementById("codeEditor").value;
-    
-                fetch("/run-code/", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": "{{ csrf_token }}"
-                    },
-                    body: JSON.stringify({ code: code })
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        const outputContainer = document.getElementById("outputContainer");
-                        outputContainer.style.display = "block";
-                        outputContainer.innerHTML = `<pre>${data.visible_case_results}</pre>`;
-                    })
-                    .catch(console.error);
+            // End Test Button
+            document.getElementById("endTestButton").addEventListener("click", () => {
+                const confirmEnd = confirm("Are you sure you want to end the test?");
+                if (confirmEnd) {
+                    endTest();
+                }
             });
     
-            // Submit Code Button
-            document.getElementById("submitButton").addEventListener("click", () => {
-                const code = document.getElementById("codeEditor").value;
+            // Detect page reload or close
+            window.addEventListener("beforeunload", (event) => {
+                const message = "Are you sure you want to reload? The test will end.";
+                event.preventDefault();
+                event.returnValue = message; // Required for modern browsers
+                return message;
+            });
     
-                fetch("/submit-code/", {
+            window.addEventListener("unload", () => {
+                stopTimer();
+            });
+    
+            // Handle "Run" button
+            document.getElementById("runCodeButton").addEventListener("click", () => {
+                const code = document.getElementById("codeEditor").value;
+                const questionName = "{{ question.question_name }}"; // Pass the question name from backend
+    
+                fetch("/run-code", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "X-CSRFToken": "{{ csrf_token }}"
+                        "X-CSRFToken": "{{ csrf_token }}", // Ensure CSRF token is available
                     },
-                    body: JSON.stringify({ code: code })
+                    body: JSON.stringify({ code: code, question_name: questionName }),
                 })
-                    .then(response => response.json())
-                    .then(data => {
+                    .then((response) => response.json())
+                    .then((data) => {
                         const outputContainer = document.getElementById("outputContainer");
                         outputContainer.style.display = "block";
                         outputContainer.innerHTML = `
-                            <pre>Visible Test Case Results:\n${data.visible_case_results}</pre>
-                            <pre>Hidden Test Cases Passed: ${data.hidden_passed}/${data.hidden_total}</pre>
+                            <h6>Results:</h6>
+                            <p>Visible Test Cases Passed: ${data.visible_passed}/${data.visible_total}</p>
+                            <p>Hidden Test Cases Passed: ${data.hidden_passed}/${data.hidden_total}</p>
                         `;
                     })
-                    .catch(console.error);
+                    .catch((error) => {
+                        console.error("Error:", error);
+                        alert("An error occurred while running the code.");
+                    });
+            });
+    
+            // Handle "Submit" button
+            document.getElementById("submitButton").addEventListener("click", () => {
+                const confirmSubmit = confirm("Are you sure you want to submit?");
+                if (confirmSubmit) {
+                    // Additional logic for submission, if needed
+                    alert("Your solution has been submitted!");
+                }
             });
         });
     </script>
+    
     
 </body>
 

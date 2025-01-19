@@ -18,14 +18,16 @@
 
 <body>
     
+    
+    
+    {% if request.user.is_authenticated and request.user.is_superuser %}
+    
     <div style="padding-top: 10px; padding-bottom: 0px">
         <h1 align="center">
             Add or delete questions
         </h1>
     </div>
-    
-    {% if request.user.is_authenticated and request.user.is_superuser %}
-    
+
     <div class="container mt-5">
         <!-- Add Question Button (Centered) -->
         <div class="d-flex justify-content-center mb-4">
@@ -41,8 +43,14 @@
                         <h5 class="card-header">{{ question.question_name }}</h5>
                         <div class="card-body" style="padding-bottom: 0%;">
                             <strong>Description: </strong>{{ question.question_desc }} <br>
-                            <strong>Visible testcases: </strong><br>{% for i in question.visible_test_cases %}{% for j in i.items %}{{ j }} {% endfor %}<br>{% endfor %}
-                            <strong>Hidden testcases: </strong><br>{% for i in question.hidden_test_cases %}{% for j in i.items %}{{ j }} {% endfor %}<br>{% endfor %}
+                            <strong>Visible testcases: </strong><br>
+                            {% for test_case in question.visible_test_cases %}
+                                <p><strong>Input:</strong> {{ test_case.input }} <br><strong>Output:</strong> {{ test_case.output }}</p>
+                            {% endfor %}
+                            <strong>Hidden testcases: </strong><br>
+                            {% for test_case in question.hidden_test_cases %}
+                                <p><strong>Input:</strong> {{ test_case.input }} <br><strong>Output:</strong> {{ test_case.output }}</p>
+                            {% endfor %}
                         </div>
                         <div class="card-footer" style="padding-bottom: 0px">
                             <!-- Delete Button -->
@@ -60,6 +68,13 @@
     </div>
     
     {% elif request.user.is_authenticated and not request.user.is_superuser %}
+
+    <div style="padding-top: 10px; padding-bottom: 0px">
+        <h1 align="center">
+            Take a test
+        </h1>
+    </div>
+
     <div class="container mt-5">
         <h1 class="mb-4">Test Questions</h1>
 
@@ -72,7 +87,7 @@
                             <strong>Description: </strong>{{ question.question_desc }} <br>
                         </div>
                         <div class="card-footer" style="padding-bottom: 0px">
-                            <!-- Delete Button -->
+                            <!-- Take Test Button -->
                             <form method="post" action="{% url 'tests' question.question_name %}">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-secondary">Take test</button>
